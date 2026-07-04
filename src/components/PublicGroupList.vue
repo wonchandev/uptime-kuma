@@ -2,7 +2,7 @@
     <!-- Group List -->
     <Draggable v-model="$root.publicGroupList" :disabled="!editMode" item-key="id" :animation="100">
         <template #item="group">
-            <div class="mb-5" data-testid="group">
+            <div class="mb-4" data-testid="group">
                 <!-- Group Title -->
                 <h2 class="group-title">
                     <font-awesome-icon v-if="editMode && showGroupDrag" icon="arrows-alt-v" class="action drag me-3" />
@@ -12,25 +12,15 @@
                         class="action remove me-3"
                         @click="removeGroup(group.index)"
                     />
-                    <span class="collapse-toggle" @click="toggleGroup(group.element)">
-                        <font-awesome-icon
-                            icon="chevron-down"
-                            class="chevron me-2"
-                            :class="{ collapsed: isGroupCollapsed(group.element) }"
-                        />
-                    </span>
                     <Editable
                         v-model="group.element.name"
                         :contenteditable="editMode"
                         tag="span"
-                        :class="{ 'collapse-toggle': !editMode }"
                         data-testid="group-name"
-                        @click="!editMode && toggleGroup(group.element)"
                     />
                 </h2>
 
-                <transition name="slide-fade-up">
-                    <div v-if="!isGroupCollapsed(group.element)" class="shadow-box monitor-list mt-4 position-relative">
+                <div class="shadow-box monitor-list mt-3 position-relative">
                         <div v-if="group.element.monitorList.length === 0" class="text-center no-monitor-msg">
                             {{ $t("No Monitors") }}
                         </div>
@@ -88,6 +78,12 @@
                                                 <p v-else class="item-name" data-testid="monitor-name">
                                                     {{ monitor.element.name }}
                                                 </p>
+                                                <span
+                                                    v-if="lastPing(monitor.element.id) !== null"
+                                                    class="ping-badge"
+                                                >
+                                                    {{ lastPing(monitor.element.id) }}ms
+                                                </span>
                                             </div>
                                             <div class="extra-info">
                                                 <div
@@ -115,7 +111,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div :key="$root.userHeartbeatBar" class="col-3 col-xl-6">
+                                        <div :key="$root.userHeartbeatBar" class="col-3 col-xl-6 beat-col">
                                             <HeartbeatBar size="mid" :monitor-id="monitor.element.id" />
                                         </div>
                                     </div>
@@ -123,7 +119,6 @@
                             </template>
                         </Draggable>
                     </div>
-                </transition>
             </div>
         </template>
     </Draggable>
@@ -175,59 +170,6 @@ export default {
         },
     },
     methods: {
-        /**
-         * Toggle collapsed state for a group
-         * @param {object} group Group to toggle
-         * @returns {void}
-         */
-        toggleGroup(group) {
-            if (!this.$router) {
-                return;
-            }
-
-            const groupId = this.getGroupIdentifier(group);
-            const collapsed = this.getCollapsedList();
-            const index = collapsed.indexOf(groupId);
-
-            if (index >= 0) {
-                collapsed.splice(index, 1);
-            } else {
-                collapsed.push(groupId);
-            }
-
-            const query = { ...this.$route.query };
-            if (collapsed.length > 0) {
-                query.collapse = collapsed;
-            } else {
-                delete query.collapse;
-            }
-
-            this.$router.push({ query }).catch(() => {});
-        },
-
-        /**
-         * Check if a group is collapsed
-         * @param {object} group Group to check
-         * @returns {boolean} Whether the group is collapsed
-         */
-        isGroupCollapsed(group) {
-            return this.getCollapsedList().includes(this.getGroupIdentifier(group));
-        },
-
-        /**
-         * Get list of collapsed group identifiers from the query param.
-         * Vue Router normalises repeated params (?collapse=1&collapse=2) into an array.
-         * @returns {string[]} Collapsed group identifiers
-         */
-        getCollapsedList() {
-            const raw = this.$route.query.collapse;
-            if (!raw) {
-                return [];
-            }
-            // Normalise to array: a single query param is a string, repeated params are already an array
-            return [].concat(raw);
-        },
-
         /**
          * Remove the specified group
          * @param {number} index Index of group to remove
@@ -285,6 +227,17 @@ export default {
         },
 
         /**
+         * Returns the most recent response time of a monitor
+         * @param {number} monitorId Id of the monitor
+         * @returns {number|null} Latest ping in ms, or null if unknown
+         */
+        lastPing(monitorId) {
+            const heartbeats = this.$root.heartbeatList[monitorId] ?? [];
+            const lastBeat = heartbeats[heartbeats.length - 1];
+            return typeof lastBeat?.ping === "number" ? lastBeat.ping : null;
+        },
+
+        /**
          * Returns the status of the last heartbeat
          * @param {number} monitorId Id of the monitor to get status for
          * @returns {number} Status of the last heartbeat
@@ -302,21 +255,9 @@ export default {
          */
         certExpiryColor(monitor) {
             if (monitor?.element?.validCert && monitor.element.certExpiryDaysRemaining > 7) {
-                return "#059669";
+                return "#017531";
             }
             return "#DC2626";
-        },
-
-        /**
-         * Get unique identifier for a group
-         * @param {object} group object
-         * @returns {string} group identifier
-         */
-        getGroupIdentifier(group) {
-            if (group.id !== undefined && group.id !== null) {
-                return group.id.toString();
-            }
-            return `group${this.$root.publicGroupList.indexOf(group)}`;
         },
     },
 };
@@ -327,7 +268,12 @@ export default {
 
 .extra-info {
     display: flex;
-    margin-bottom: 0.5rem;
+    margin-top: 0.25rem;
+
+    // Hide when there are no tags so the name column stays perfectly centered
+    &:empty {
+        display: none;
+    }
 }
 
 .extra-info > div > div:first-child {
@@ -345,12 +291,85 @@ export default {
     min-height: 46px;
 }
 
+// Flatten the old boxed group container — cards carry the visual weight now
+.shadow-box.monitor-list {
+    background-color: transparent !important;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+// Each monitor becomes a slim card separated by whitespace.
+// --heartbeat-up-color is picked up by the HeartbeatBar canvas (Toss blue).
+.monitor-list .item {
+    --heartbeat-up-color: #017531;
+
+    background-color: #fff;
+    border-radius: 16px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(23, 32, 42, 0.03), 0 4px 16px rgba(23, 32, 42, 0.04);
+
+    // Vertically center the name column against the taller heartbeat column
+    .row {
+        align-items: center;
+    }
+
+    // No hover effect — keep the same look as the resting state
+    // (also neutralizes the global .monitor-list .item:hover highlight)
+    &:hover {
+        background-color: #fff;
+    }
+
+    .dark & {
+        --heartbeat-up-color: #12a35b;
+
+        background-color: #1e1e24;
+        box-shadow: none;
+
+        &:hover {
+            background-color: #1e1e24;
+        }
+    }
+}
+
 .item-name {
     padding-left: 5px;
     padding-right: 5px;
     margin: 0;
     display: inline-block;
+    font-weight: 600;
+    color: #191f28;
+
+    .dark & {
+        color: #fff;
+    }
 }
+
+a.item-name:hover {
+    text-decoration: underline;
+}
+
+// Real-time response time capsule next to the service name
+.ping-badge {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 50rem;
+    background-color: rgba(1, 117, 49, 0.09);
+    color: #017531;
+
+    .dark & {
+        background-color: rgba(18, 163, 91, 0.16);
+        color: #34c17e;
+    }
+}
+
 
 .btn-link {
     color: #bbbbbb;
@@ -379,24 +398,19 @@ export default {
 }
 
 .group-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: #4e5968;
+    padding-left: 4px;
+
+    .dark & {
+        color: #c3c9d1;
+    }
+
     span {
         display: inline-block;
         min-width: 15px;
-    }
-}
-
-.collapse-toggle {
-    cursor: pointer;
-    padding: 2px;
-}
-
-.chevron {
-    font-size: 0.8em;
-    color: #bbb;
-    transition: all 0.2s $easing-in;
-
-    &.collapsed {
-        transform: rotate(-90deg);
     }
 }
 
@@ -408,5 +422,60 @@ export default {
 
 .bg-maintenance {
     background-color: $maintenance;
+}
+</style>
+
+<!-- eslint-disable-next-line vue-scoped-css/enforce-style-type -->
+<style lang="scss">
+@import "../assets/vars";
+
+// Uptime pill → soft tinted capsule with vivid text.
+// Unscoped because the badge is rendered by the child Uptime component;
+// limited to status pages via the body class set by StatusPage.
+body.status-page-body .monitor-list .item .badge.rounded-pill {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    &.bg-primary {
+        background-color: rgba(1, 117, 49, 0.09) !important;
+        color: #017531;
+    }
+
+    &.bg-danger {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+        color: #dc3545;
+    }
+
+    &.bg-warning {
+        background-color: rgba(248, 163, 6, 0.12) !important;
+        color: #b45309;
+    }
+
+    &.bg-maintenance {
+        background-color: rgba(23, 71, 245, 0.1) !important;
+        color: $maintenance;
+    }
+}
+
+body.status-page-body.dark .monitor-list .item .badge.rounded-pill {
+    &.bg-primary {
+        background-color: rgba(18, 163, 91, 0.16) !important;
+        color: #34c17e;
+    }
+
+    &.bg-danger {
+        background-color: rgba(255, 107, 129, 0.14) !important;
+        color: #ff6b81;
+    }
+
+    &.bg-warning {
+        background-color: rgba(248, 163, 6, 0.14) !important;
+        color: #fbbf24;
+    }
+
+    &.bg-maintenance {
+        background-color: rgba(61, 139, 253, 0.14) !important;
+        color: #7db4ff;
+    }
 }
 </style>

@@ -564,7 +564,11 @@ export default {
                 down: rootStyles.getPropertyValue("--bs-danger") || "#dc3545",
                 pending: rootStyles.getPropertyValue("--bs-warning") || "#ffc107",
                 maintenance: rootStyles.getPropertyValue("--maintenance") || "#1d4ed8",
-                up: rootStyles.getPropertyValue("--bs-primary") || "#5cdd8b",
+                // Allow pages to override the "up" color via an inherited custom property
+                up:
+                    canvasStyles.getPropertyValue("--heartbeat-up-color") ||
+                    rootStyles.getPropertyValue("--bs-primary") ||
+                    "#5cdd8b",
             };
 
             // Draw each beat

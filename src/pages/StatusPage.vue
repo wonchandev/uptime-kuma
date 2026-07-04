@@ -376,38 +376,17 @@
                 </div>
             </template>
 
-            <!-- Overall Status -->
-            <div class="shadow-box list p-4 overall-status mb-4">
-                <div v-if="Object.keys($root.publicMonitorList).length === 0 && loadedData">
-                    <font-awesome-icon icon="question-circle" class="ok" />
-                    {{ $t("No Services") }}
+            <!-- Overall Status Hero -->
+            <div class="hero-status mb-4" :class="heroStatusClass">
+                <div class="hero-main">
+                    <span class="hero-pulse" :class="heroStatusClass"></span>
+                    <h2 class="hero-title">{{ heroTitle }}</h2>
                 </div>
+            </div>
 
-                <template v-else>
-                    <div v-if="allUp">
-                        <font-awesome-icon icon="check-circle" class="ok" />
-                        {{ $t("All Systems Operational") }}
-                    </div>
-
-                    <div v-else-if="partialDown">
-                        <font-awesome-icon icon="exclamation-circle" class="warning" />
-                        {{ $t("Partially Degraded Service") }}
-                    </div>
-
-                    <div v-else-if="allDown">
-                        <font-awesome-icon icon="times-circle" class="danger" />
-                        {{ $t("Degraded Service") }}
-                    </div>
-
-                    <div v-else-if="isMaintenance">
-                        <font-awesome-icon icon="wrench" class="status-maintenance" />
-                        {{ $t("maintenanceStatus-under-maintenance") }}
-                    </div>
-
-                    <div v-else>
-                        <font-awesome-icon icon="question-circle" style="color: #efefef" />
-                    </div>
-                </template>
+            <!-- Response Metrics Summary -->
+            <div class="metrics-section">
+                <StatusMetrics />
             </div>
 
             <!-- Maintenance -->
@@ -437,8 +416,8 @@
             />
             <!-- eslint-disable vue/no-v-html-->
             <div
-                v-if="!enableEditMode"
-                class="alert-heading p-2"
+                v-if="!enableEditMode && descriptionHTML"
+                class="page-description"
                 data-testid="description"
                 v-html="descriptionHTML"
             ></div>
@@ -557,24 +536,17 @@
                     tag="div"
                     :contenteditable="enableEditMode"
                     :noNL="false"
-                    class="alert-heading p-2"
+                    class="p-2"
                     data-testid="custom-footer-editable"
                 />
                 <!-- eslint-disable vue/no-v-html-->
                 <div
-                    v-if="!enableEditMode"
-                    class="alert-heading p-2"
+                    v-if="!enableEditMode && footerHTML"
+                    class="footer-text-block"
                     data-testid="footer-text"
                     v-html="footerHTML"
                 ></div>
                 <!-- eslint-enable vue/no-v-html-->
-
-                <p v-if="config.showPoweredBy" data-testid="powered-by">
-                    {{ $t("Powered by") }}
-                    <a target="_blank" rel="noopener noreferrer" href="https://github.com/louislam/uptime-kuma">
-                        {{ $t("Uptime Kuma") }}
-                    </a>
-                </p>
 
                 <div class="refresh-info mb-2">
                     <div>{{ $t("lastUpdatedAt", { date: lastUpdateTimeDisplay }) }}</div>
@@ -619,6 +591,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import Confirm from "../components/Confirm.vue";
 import PublicGroupList from "../components/PublicGroupList.vue";
+import StatusMetrics from "../components/StatusMetrics.vue";
 import MaintenanceTime from "../components/MaintenanceTime.vue";
 import IncidentHistory from "../components/IncidentHistory.vue";
 import IncidentManageModal from "../components/IncidentManageModal.vue";
@@ -650,6 +623,7 @@ const favicon = new Favico({
 export default {
     components: {
         PublicGroupList,
+        StatusMetrics,
         ImageCropUpload,
         Confirm,
         PrismEditor,
@@ -834,6 +808,49 @@ export default {
             return this.overallStatus === STATUS_PAGE_MAINTENANCE;
         },
 
+        /**
+         * Friendly headline for the hero status block
+         * @returns {string} Localized headline
+         */
+        heroTitle() {
+            if (Object.keys(this.$root.publicMonitorList).length === 0 && this.loadedData) {
+                return this.$t("statusHeroNoServices");
+            }
+            if (this.isMaintenance) {
+                return this.$t("statusHeroMaintenance");
+            }
+            if (this.allUp) {
+                return this.$t("statusHeroAllUp");
+            }
+            if (this.allDown) {
+                return this.$t("statusHeroAllDown");
+            }
+            if (this.partialDown) {
+                return this.$t("statusHeroPartialDown");
+            }
+            return this.$t("statusHeroLoading");
+        },
+
+        /**
+         * Status modifier class for the hero block
+         * @returns {string} CSS class name
+         */
+        heroStatusClass() {
+            if (this.isMaintenance) {
+                return "hero-maintenance";
+            }
+            if (this.allUp) {
+                return "hero-up";
+            }
+            if (this.allDown) {
+                return "hero-down";
+            }
+            if (this.partialDown) {
+                return "hero-partial";
+            }
+            return "hero-neutral";
+        },
+
         incidentHTML() {
             if (this.incident && this.incident.content != null) {
                 return DOMPurify.sanitize(marked(this.incident.content));
@@ -978,7 +995,12 @@ export default {
         // Special handle for dev
         this.baseURL = getResBaseURL();
     },
+    unmounted() {
+        document.body.classList.remove("status-page-body");
+    },
     async mounted() {
+        document.body.classList.add("status-page-body");
+
         this.slug = this.overrideSlug || this.$route.params.slug;
 
         if (!this.slug) {
@@ -1493,24 +1515,124 @@ export default {
 };
 </script>
 
+<!-- eslint-disable-next-line vue-scoped-css/enforce-style-type -->
+<style lang="scss">
+// Page background (not scoped: applied on <body> while this page is mounted)
+body.status-page-body {
+    background-color: #f2f4f6;
+
+    &.dark {
+        background-color: #101014;
+    }
+}
+</style>
+
 <style lang="scss" scoped>
 @import "../assets/vars.scss";
 
-.overall-status {
-    font-weight: bold;
-    font-size: 25px;
+.hero-status {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    background-color: #fff;
+    border-radius: 20px;
+    padding: 22px 26px;
+    box-shadow: 0 1px 2px rgba(23, 32, 42, 0.04), 0 8px 24px rgba(23, 32, 42, 0.05);
 
-    .ok {
-        color: $primary;
+    .dark & {
+        background-color: #1e1e24;
+        box-shadow: none;
     }
 
-    .warning {
-        color: $warning;
+    .hero-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
     }
 
-    .danger {
-        color: $danger;
+    .hero-title {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: -0.4px;
+        line-height: 1.35;
+        color: #191f28;
+
+        .dark & {
+            color: #fff;
+        }
     }
+
+    .hero-pulse {
+        flex-shrink: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+
+        &.hero-up {
+            background-color: #017531;
+            box-shadow: 0 0 0 5px rgba(1, 117, 49, 0.14);
+        }
+
+        &.hero-partial {
+            background-color: $warning;
+            box-shadow: 0 0 0 5px rgba(248, 163, 6, 0.15);
+        }
+
+        &.hero-down {
+            background-color: $danger;
+            box-shadow: 0 0 0 5px rgba(220, 53, 69, 0.15);
+        }
+
+        &.hero-maintenance {
+            background-color: $maintenance;
+            box-shadow: 0 0 0 5px rgba(23, 71, 245, 0.15);
+        }
+
+        &.hero-neutral {
+            background-color: #adb5bd;
+            box-shadow: 0 0 0 5px rgba(173, 181, 189, 0.15);
+        }
+
+        .dark &.hero-up {
+            background-color: #12a35b;
+            box-shadow: 0 0 0 5px rgba(18, 163, 91, 0.18);
+        }
+    }
+
+    @media (max-width: 550px) {
+        flex-direction: column;
+        padding: 18px 18px;
+
+        .hero-title {
+            font-size: 20px;
+        }
+    }
+}
+
+.metrics-section {
+    margin-bottom: 40px;
+}
+
+.refresh-info {
+    font-size: 12px;
+    line-height: 1.6;
+    color: #8b95a1;
+}
+
+.page-description {
+    margin-bottom: 1rem;
+    color: #4e5968;
+
+    .dark & {
+        color: #8b95a1;
+    }
+}
+
+.footer-text-block {
+    margin-bottom: 0.5rem;
 }
 
 h1 {
@@ -1695,21 +1817,12 @@ footer {
 }
 
 .dark .shadow-box {
-    background-color: #0d1117;
-}
-
-.status-maintenance {
-    color: $maintenance;
-    margin-right: 5px;
+    background-color: #1e1e24;
 }
 
 .mobile {
     h1 {
         font-size: 22px;
-    }
-
-    .overall-status {
-        font-size: 20px;
     }
 }
 
@@ -1754,10 +1867,6 @@ footer {
     .alert-heading {
         font-weight: bold;
     }
-}
-
-.refresh-info {
-    opacity: 0.7;
 }
 
 .past-incidents-title {

@@ -1,47 +1,12 @@
 <template>
-    <div>
-        <!-- Desktop header -->
-        <header v-if="!$root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
-            <router-link
-                to="/"
-                class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none"
-            >
-                <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
-                <span class="fs-4 title">Uptime Kuma</span>
-            </router-link>
-        </header>
+    <div class="not-found-wrap">
+        <div class="not-found-card">
+            <div class="code">404</div>
+            <h1 class="headline">{{ $t("notFoundTitle") }}</h1>
+            <p class="caption">{{ $t("notFoundDesc") }}</p>
 
-        <!-- Mobile header -->
-        <header v-else class="d-flex flex-wrap justify-content-center pt-2 pb-2 mb-3">
-            <router-link to="/dashboard" class="d-flex align-items-center text-dark text-decoration-none">
-                <object class="bi" width="40" height="40" data="/icon.svg" />
-                <span class="fs-4 title ms-2">Uptime Kuma</span>
-            </router-link>
-        </header>
-
-        <div class="content">
-            <div>
-                <strong>🐻 {{ $t("Page Not Found") }}</strong>
-            </div>
-
-            <div class="guide">
-                {{ $t("Most likely causes:") }}
-                <ul>
-                    <li>{{ $t("The resource is no longer available.") }}</li>
-                    <li>{{ $t("There might be a typing error in the address.") }}</li>
-                </ul>
-
-                {{ $t("What you can try:") }}
-                <br />
-                <ul>
-                    <li>{{ $t("Retype the address.") }}</li>
-                    <li>
-                        <a href="#" class="go-back" @click="goBack()">{{ $t("Go back to the previous page.") }}</a>
-                    </li>
-                    <li>
-                        <a href="/" class="go-back">{{ $t("Go back to home page.") }}</a>
-                    </li>
-                </ul>
+            <div class="actions">
+                <a href="/" class="btn-toss btn-toss-primary">{{ $t("notFoundGoHome") }}</a>
             </div>
         </div>
     </div>
@@ -49,62 +14,130 @@
 
 <script>
 export default {
-    async mounted() {},
-    methods: {
-        /**
-         * Go back 1 in browser history
-         * @returns {void}
-         */
-        goBack() {
-            history.back();
-        },
+    mounted() {
+        document.body.classList.add("not-found-body");
+    },
+    unmounted() {
+        document.body.classList.remove("not-found-body");
     },
 };
 </script>
 
+<!-- eslint-disable-next-line vue-scoped-css/enforce-style-type -->
+<style lang="scss">
+// Page background (not scoped: applied on <body> while this page is mounted)
+body.not-found-body {
+    background-color: #f2f4f6;
+
+    &.dark {
+        background-color: #101014;
+    }
+}
+</style>
+
 <style scoped lang="scss">
 @import "../assets/vars.scss";
 
-.go-back {
-    text-decoration: none;
-    color: $primary !important;
-}
-
-.content {
+.not-found-wrap {
+    min-height: 100vh;
     display: flex;
-    justify-content: center;
-    align-content: center;
     align-items: center;
-    flex-direction: column;
-    gap: 50px;
-    padding-top: 30px;
+    justify-content: center;
+    padding: 24px;
+}
 
-    strong {
-        font-size: 24px;
+.not-found-card {
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+    background-color: #fff;
+    border-radius: 24px;
+    padding: 40px 32px 36px;
+    box-shadow: 0 1px 2px rgba(23, 32, 42, 0.04), 0 8px 24px rgba(23, 32, 42, 0.05);
+
+    .dark & {
+        background-color: #1e1e24;
+        box-shadow: none;
     }
 }
 
-.guide {
-    max-width: 800px;
+.code {
+    display: inline-block;
+    font-size: 15px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border-radius: 50rem;
+    background-color: rgba(1, 117, 49, 0.09);
+    color: #017531;
+    margin-bottom: 18px;
+
+    .dark & {
+        background-color: rgba(18, 163, 91, 0.16);
+        color: #34c17e;
+    }
+}
+
+.headline {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    color: #191f28;
+    margin-bottom: 8px;
+
+    .dark & {
+        color: #fff;
+    }
+}
+
+.caption {
     font-size: 14px;
+    line-height: 1.6;
+    color: #8b95a1;
+    margin-bottom: 28px;
 }
 
-.title {
-    font-weight: bold;
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.dark {
-    header {
-        background-color: $dark-header-bg;
-        border-bottom-color: $dark-header-bg !important;
+.btn-toss {
+    display: block;
+    width: 100%;
+    border: none;
+    border-radius: 14px;
+    padding: 13px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter 0.15s $easing-in;
 
-        span {
-            color: #f0f6fc;
-        }
+    &:hover {
+        filter: brightness(1.06);
+        text-decoration: none;
+    }
+}
+
+.btn-toss-primary {
+    background-color: #017531;
+    color: #fff;
+
+    &:hover {
+        color: #fff;
     }
 
-    .bottom-nav {
-        background-color: $dark-bg;
+    .dark & {
+        background-color: #12a35b;
+        color: #06130c;
+
+        &:hover {
+            color: #06130c;
+        }
     }
 }
 </style>

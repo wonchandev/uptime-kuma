@@ -13,6 +13,7 @@
                     <div class="tooltip-status" :class="statusClass">
                         {{ statusText }}
                     </div>
+                    <div v-if="pingText" class="tooltip-ping">{{ pingText }}</div>
                     <div class="tooltip-time">{{ timeText }}</div>
                     <div v-if="content?.msg" class="tooltip-message">{{ content.msg }}</div>
                 </slot>
@@ -107,6 +108,13 @@ export default {
             }
             return this.$root.datetime(this.content.time);
         },
+
+        pingText() {
+            if (!this.content || this.content === 0 || typeof this.content.ping !== "number") {
+                return null;
+            }
+            return this.content.ping + "ms";
+        },
     },
 };
 </script>
@@ -168,6 +176,14 @@ export default {
             &.status-empty {
                 color: $secondary-text;
             }
+        }
+
+        .tooltip-ping {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 2px;
         }
 
         .tooltip-time {
