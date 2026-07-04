@@ -21,7 +21,8 @@ COPY --chown=node:node package.json package.json
 COPY --chown=node:node package-lock.json package-lock.json
 RUN npm ci
 COPY --chown=node:node . .
-RUN npm run build && npm prune --omit=dev
+# Vite build needs more heap than Node's default on small machines
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build && npm prune --omit=dev
 COPY --chown=node:node --from=build_healthcheck /app/extra/healthcheck /app/extra/healthcheck
 RUN mkdir ./data
 
